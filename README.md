@@ -1,4 +1,4 @@
-# G6 STM32
+# G7 Consolidated Code
 
 ## Cloning
 ```bash
