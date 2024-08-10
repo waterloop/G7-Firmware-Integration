@@ -1,0 +1,4 @@
+../Core/Src/temp_sensing.c:11:6:enqueue	32	static
+../Core/Src/temp_sensing.c:24:10:calculateTemperature	32	static
+../Core/Src/temp_sensing.c:41:6:measureTempADC	56	static
+../Core/Src/temp_sensing.c:64:6:powerFan	4	static

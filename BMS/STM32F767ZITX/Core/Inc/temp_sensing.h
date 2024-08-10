@@ -10,7 +10,7 @@
 #define SAMPLE_DELAY 10U
 
 #define R10K 10000U
-#define VOLTAGE_SUPPLY 2.5U
+#define VOLTAGE_SUPPLY 2.5
 
 //Steinhart-Hart constants
 #define BIAS_RESISTANCE 8250U

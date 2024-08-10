@@ -26,7 +26,7 @@
 // FRAME 1
 const Data_Segment_t DRIVING_DIRECTION_K       = {MOTOR_CONTROLLER_K1, 1, 1};
 const Data_Segment_t MOTOR_SPEED_K             = {MOTOR_CONTROLLER_K1, 2, 3};
-const Data_Segment_t MOTOR_ERROR_CODE_K        = {MOTOR_CONTROLLER_K1, 4, 4}; 
+const Data_Segment_t MOTOR_ERROR_CODE_K        = {MOTOR_CONTROLLER_K1, 4, 4};
 // FRAME 2
 const Data_Segment_t BATTERY_VOLTAGE_K         = {MOTOR_CONTROLLER_K2, 1, 2};
 const Data_Segment_t BATTERY_CURRENT_K         = {MOTOR_CONTROLLER_K2, 3, 4};
@@ -60,11 +60,11 @@ const Data_Segment_t LIM_ONE_TEMP_ONE          = {SENSOR_BOARD_1, 2, 2};
 const Data_Segment_t LIM_ONE_TEMP_TWO          = {SENSOR_BOARD_1, 3, 3};
 const Data_Segment_t LIM_ONE_TEMP_THREE        = {SENSOR_BOARD_1, 4, 4};
 const Data_Segment_t LIM_TWO_TEMP_ONE          = {SENSOR_BOARD_1, 5, 5};
-const Data_Segment_t LIM_ONE_TEMP_TWO          = {SENSOR_BOARD_1, 6, 6};
+const Data_Segment_t LIM_TWO_TEMP_TWO          = {SENSOR_BOARD_1, 6, 6};
 const Data_Segment_t LIM_TWO_TEMP_THREE        = {SENSOR_BOARD_1, 7, 7};
 const Data_Segment_t SENSORS_ERROR_CODE_1      = {SENSOR_BOARD_1, 8, 8};
 //SECOND (IMU) FRAME
-const Data_Segment_t X_ACCEL                   = {SENSOR_BOARD_2, 1, 2}; 
+const Data_Segment_t X_ACCEL                   = {SENSOR_BOARD_2, 1, 2};
 const Data_Segment_t Y_ACCEL                   = {SENSOR_BOARD_2, 3, 4};
 const Data_Segment_t X_GYRO                    = {SENSOR_BOARD_2, 5, 5};
 const Data_Segment_t Y_GYRO                    = {SENSOR_BOARD_2, 6, 6};
