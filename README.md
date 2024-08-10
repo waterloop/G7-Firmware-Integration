@@ -1,9 +1,9 @@
-# G6 STM32
+# G7 Consolidated Code
 
 ## Cloning
 ```bash
-git clone https://github.com/waterloop/G6-STM32
-cd G6-Firmware
+git clone https://github.com/waterloop/G7-Firmware-Integration.git
+cd G7-Firmware-Integration
 git submodule update --init --recursive
 ```
 
