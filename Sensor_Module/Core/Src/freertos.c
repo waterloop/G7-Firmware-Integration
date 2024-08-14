@@ -164,13 +164,13 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the queue(s) */
   /* creation of Processed_Temp_Sensor_Data_Q */
-  Processed_Temp_Sensor_Data_QHandle = osMessageQueueNew (14, sizeof(uint64_t), &Processed_Temp_Sensor_Data_Q_attributes);
+  Processed_Temp_Sensor_Data_QHandle = osMessageQueueNew (11, sizeof(uint64_t), &Processed_Temp_Sensor_Data_Q_attributes);
 
   /* creation of Processed_IMU_Data_Q */
-  Processed_IMU_Data_QHandle = osMessageQueueNew (12, sizeof(uint64_t), &Processed_IMU_Data_Q_attributes);
+  Processed_IMU_Data_QHandle = osMessageQueueNew (9, sizeof(uint64_t), &Processed_IMU_Data_Q_attributes);
 
   /* creation of Processed_Pressure_Sensor_Data_Q */
-  Processed_Pressure_Sensor_Data_QHandle = osMessageQueueNew (3, sizeof(uint64_t), &Processed_Pressure_Sensor_Data_Q_attributes);
+  Processed_Pressure_Sensor_Data_QHandle = osMessageQueueNew (1, sizeof(uint64_t), &Processed_Pressure_Sensor_Data_Q_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -227,14 +227,6 @@ void process_pressure_data(void *argument)
 	  //Push data struct to Sensor data queue
 	  osMessageQueuePut(Processed_Pressure_Sensor_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
-	  // Clear any existing flags before checking the semaphore
-	  osThreadFlagsClear(0x0001);
-
-	  // If Semaphore is full, block waiting for flag
-	  if (osSemaphoreGetCount(PressureSemHandle) >= MAX_SEM_COUNT) {
-		  osThreadFlagsWait(0x0001, osFlagsWaitAny, osWaitForever);
-	  }
-
 	  //Release semaphore to signal pressure data ready in Queue
 	  osSemaphoreRelease(PressureSemHandle);
 
@@ -285,14 +277,6 @@ void process_temp_data(void *argument)
 	  temp_queue_pair.data_type = LIM_TWO_TEMP_THREE;
 	  temp_queue_pair.data_value = lim_temps[5];
 	  osMessageQueuePut(Processed_Temp_Sensor_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
-
-	  // Clear any existing flags before checking the semaphore
-	  osThreadFlagsClear(0x0001);
-
-	  // If Semaphore is full, block waiting for flag
-	  if (osSemaphoreGetCount(TempSemHandle) >= MAX_SEM_COUNT) {
-		  osThreadFlagsWait(0x0001, osFlagsWaitAny, osWaitForever);
-	  }
 
 	  //Release semaphore to signal Temperature data ready in Queue
 	  osSemaphoreRelease(TempSemHandle);
@@ -346,14 +330,6 @@ void process_IMU_data(void *argument)
 	temp_queue_pair.data_value = z_gyro;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
-	// Clear any existing flags before checking the semaphore
-	osThreadFlagsClear(0x0001);
-
-	// If Semaphore is full, block waiting for flag
-	if (osSemaphoreGetCount(IMUSemHandle) >= MAX_SEM_COUNT) {
-		osThreadFlagsWait(0x0001, osFlagsWaitAny, osWaitForever);
-	}
-
 	//Release semaphore to signal IMU data ready in Queue
 	osSemaphoreRelease(IMUSemHandle);
 
@@ -392,9 +368,6 @@ void process_CAN_sensor_data(void *argument)
 		  }
 	  }
 
-	  //Notify Temperature sensing Task to unblock and try releasing the potentially maxed-out semaphore again, refilling queue
-	  osThreadFlagsSet(TempSensingHandle, 0x0001);
-
 	  //CAN frame Pressure data entry
 	  //Acquire Pressure semaphore to ensure data is ready in queue for transfer
 	  osSemaphoreAcquire(PressureSemHandle, osWaitForever);
@@ -404,9 +377,6 @@ void process_CAN_sensor_data(void *argument)
 	  {
 		  CAN_set_segment(&tx_frame, received_data.data_type, received_data.data_value);
 	  }
-
-	  //Notify Pressure sensing Task to unblock and try releasing the potentially maxed-out semaphore again, refilling queue
-	  osThreadFlagsSet(PressureSensingHandle, 0x0001);
 
 	  //Add error code data pairing to the CAN frame
 	  CAN_set_segment(&tx_frame, SENSORS_ERROR_CODE_1, error_code);
@@ -448,9 +418,6 @@ void process_CAN_IMU_data(void *argument)
 			  CAN_set_segment(&imu_frame, received_data.data_type, received_data.data_value);
 		  }
 	  }
-
-	  // Notify IMU Task to unblock and try releasing the potentially maxed-out semaphore again, refilling queue
-	  osThreadFlagsSet(IMUProcessingHandle, 0x0001);
 
 	  //Add error code data pairing to the CAN frame
 	  CAN_set_segment(&imu_frame, SENSORS_ERROR_CODE_2, error_code);
