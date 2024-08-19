@@ -29,11 +29,4 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>Common</name>
-			<type>2</type>
-			<location>C:/Users/mahir/Desktop/Waterloop/G6-STM32/Common</location>
-		</link>
-	</linkedResources>
 </projectDescription>

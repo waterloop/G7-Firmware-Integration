@@ -18,14 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "can.h"
 #include "i2c.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-//#include "motor_controller.h"
-#include "dac.h"
 
 /* USER CODE END Includes */
 
@@ -52,7 +51,10 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
+
+void CAN_Thread(void *argument);
 
 /* USER CODE END PFP */
 
@@ -67,6 +69,7 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -91,67 +94,26 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C2_Init();
   MX_CAN3_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-//  HAL_CAN_Start(&hcan3);
 
-  DAC_t throttle = DAC_init(&hi2c2);
-
-//  Motor_Controller_Data_t data_struct = MC_init(&hcan3);
-//  CAN_Frame_t tx_frame = CAN_frame_init(&hcan3, 0xFFFFFFFF);
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  DAC_write(&throttle, 0);
-
-  for(int i = 0; i < 40; i++) {
-	  DAC_write(&throttle, i*0.05);
-	  HAL_Delay(500);
-  }
-
-  for(int i = 40; i > 0; i--) {
-  	  DAC_write(&throttle, i*0.05);
-  	  HAL_Delay(500);
-  }
-
-  for(int i = 0; i < 40; i++) {
-	  DAC_write(&throttle, i*0.05);
-	  HAL_Delay(500);
-  }
-
   while (1)
   {
-//    DAC_write(&throttle, 0);
-//    DAC_write(&throttle, 0.1);
-//    DAC_write(&throttle, 0.2);
-//    DAC_write(&throttle, 0.3);
-//	DAC_write(&throttle, 0.4);
-//	DAC_write(&throttle, 0.5);
-//	DAC_write(&throttle, 0.6);
-//	DAC_write(&throttle, 0.7);
-//	DAC_write(&throttle, 0.8);
-//	DAC_write(&throttle, 0.9);
-//    DAC_write(&throttle, 1);
-//    DAC_write(&throttle, 1.1);
-//    DAC_write(&throttle, 1.2);
-//    DAC_write(&throttle, 1.3);
-//    DAC_write(&throttle, 1.4);
-//    DAC_write(&throttle, 1.5);
-//    DAC_write(&throttle, 1.6);
-//    DAC_write(&throttle, 1.9);
-//    DAC_write(&throttle, 2);
-
-//	while (HAL_CAN_GetRxFifoFillLevel(&hcan3, CAN_RX_FIFO1)) {
-//		MC_execute_command(CAN_get_frame(&hcan3, CAN_RX_FIFO1));
-//	}
-//
-//	if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan3)) {
-//		MC_get_data(&data_struct);
-//	}
-//
-//	//build tx_frame here
-//
-//	CAN_send_frame(tx_frame);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -211,7 +173,32 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+void CAN_Thread(void *argument) {
+
+}
+
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM3 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM3) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
