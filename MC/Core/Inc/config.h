@@ -41,6 +41,8 @@ const Data_Segment_t MOTOR_SPEED               = {MOTOR_CONTROLLER, 5, 6};
 const Data_Segment_t MOTOR_CONTROLLER_TEMP     = {MOTOR_CONTROLLER, 7, 8};
 const Data_Segment_t DRIVING_DIRECTION         = {MOTOR_CONTROLLER, 8, 8};
 const Data_Segment_t MOTOR_ERROR_CODE          = {MOTOR_CONTROLLER, 8, 8};
+const Data_Segment_t RPI_COMMAND_CODE          = {MOTOR_CONTROLLER, 1, 1};
+const Data_Segment_t RPI_COMMAND_DATA          = {MOTOR_CONTROLLER, 2, 2};
 // END MOTOR CONTROLLER DEFS
 
 // BEGIN BMS DEFS
