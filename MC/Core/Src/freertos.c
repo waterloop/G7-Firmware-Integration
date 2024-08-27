@@ -54,6 +54,7 @@ typedef enum {
 } DrivingDirection;
 
 typedef enum {
+	MC_IDLE,
 	MC_START,
 	MC_STOP,
 	MC_THROTTLE,
@@ -402,22 +403,31 @@ void MC_SendEndThread(void *argument){
 
 void MC_CommandControlThread(void *argument){
 	CAN_Frame_t command_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER); //initialize frame to receive command from RPI (psuedo frame, RPI code doesn't exist yet)
-
-	uint8_t command = CAN_get_segment(command_frame, RPI_COMMAND_CODE); //Get "command" from CAN data frame
 	Motor_Controller_t kelly_mc =  MC_init(&hcan3, &hi2c2);; //Initialize motor controller with used CAN and I2C handles
 
-	if(command == MC_START){
-		MC_drive(&kelly_mc);
-	}
-	else if(command == MC_STOP){
-		MC_stop(&kelly_mc);
-	}
-	else if(command == MC_THROTTLE){
-		uint8_t throttle = CAN_get_segment(command_frame, RPI_COMMAND_DATA); //Get throttle percent "data" from CAN data frame
-		MC_set_throttle(&kelly_mc, (float)throttle);
-	}
-	else if(command == MC_DIRECTION){
-		MC_change_direction();
+	for(;;){
+
+		//Checks if CAN message is available from RPI
+		if(HAL_CAN_GetRxFifoFillLevel(&hcan3, CAN_RX_FIFO1)){
+			command_frame = CAN_get_frame(&hcan3, CAN_RX_FIFO1);
+		}
+
+		uint8_t command = CAN_get_segment(command_frame, RPI_COMMAND_CODE); //Get "command" from CAN data frame
+
+		if(command == MC_START){
+			MC_drive(&kelly_mc);
+		}
+		else if(command == MC_STOP){
+			MC_stop(&kelly_mc);
+		}
+		else if(command == MC_THROTTLE){
+			uint8_t throttle = CAN_get_segment(command_frame, RPI_COMMAND_DATA); //Get throttle percent "data" from CAN data frame
+			MC_set_throttle(&kelly_mc, (float)throttle);
+		}
+		else if(command == MC_DIRECTION){
+			MC_change_direction();
+		}
+
 	}
 
 }
