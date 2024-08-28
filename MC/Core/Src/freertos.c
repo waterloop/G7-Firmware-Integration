@@ -332,7 +332,7 @@ void MC_ReceiveEndThread(void *argument) {
 
 void MC_SendStartThread(void *argument){
 
-	CAN_Frame_t start_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K1); //Initialize CAN_frame to send to MC
+	CAN_Frame_t start_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K1); //Initialize CAN_frame to receive frame from start frame queue
 	CAN_Frame_t send_frame = CAN_frame_init(&hcan1, MOTOR_CONTROLLER_K1); //Initialize CAN_frame to send to RPI
 
 	Motor_Controller_t mc_data = {0};
@@ -367,7 +367,7 @@ void MC_SendStartThread(void *argument){
 
 void MC_SendEndThread(void *argument){
 
-	CAN_Frame_t end_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K2); //Initialize CAN_frame to send to MC
+	CAN_Frame_t end_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K2); //Initialize CAN_frame to receive frame from end frame queue
 	CAN_Frame_t send_frame = CAN_frame_init(&hcan1, MOTOR_CONTROLLER_K2); //Initialize CAN_frame to send to RPI
 
 	Motor_Controller_t mc_data = {0};
@@ -494,7 +494,7 @@ void MC_change_direction() {
 	if (HAL_GPIO_ReadPin(FW.port, FW.pin)) { //Sets direction to reverse if direction is forward
 		HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_SET);
-	} else { //Sets direction to forward if direction is reverse
+	} else if(HAL_GPIO_ReadPin(REV.port, REV.pin)) { //Sets direction to forward if direction is reverse
 		HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_SET);
 	}
@@ -505,7 +505,7 @@ void MC_set_throttle(Motor_Controller_t* self, float value) {
 }
 
 float get_voltage(float throttle) {
-  return throttle/100.0 * 5;
+  return throttle / 20.0;
 }
 
 
