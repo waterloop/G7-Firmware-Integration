@@ -481,6 +481,8 @@ Motor_Controller_t MC_init(CAN_HandleTypeDef* handler, I2C_HandleTypeDef* i2c_ha
 void MC_stop(Motor_Controller_t* self) {
 	DAC_write(&self -> throttle, 0); //Sets throttle to 0
 	HAL_GPIO_WritePin(BRK.port, BRK.pin, GPIO_PIN_SET); //Sets brake pin
+	HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_RESET); //Resets reverse pin
+	HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_RESET); //Resets forward pin
 }
 
 void MC_drive(Motor_Controller_t* self) {
