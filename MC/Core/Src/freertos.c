@@ -288,6 +288,7 @@ void MC_ReceiveStartThread(void *argument) {
 		if(received){
 			osMessageQueuePut(start_frame_q, &start_frame, 0, osWaitForever);
 			osSemaphoreRelease(MCSemStartHandle);
+			received = 0;
 		}
 
 
@@ -322,7 +323,7 @@ void MC_ReceiveEndThread(void *argument) {
 		if(received){
 			osMessageQueuePut(end_frame_q, &end_frame, 0, osWaitForever);
 			osSemaphoreRelease(MCSemEndHandle);
-
+			received = 0;
 		}
 
 	}
