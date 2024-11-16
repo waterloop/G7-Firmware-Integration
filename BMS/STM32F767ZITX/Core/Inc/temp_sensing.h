@@ -12,6 +12,10 @@
 #define R10K 10000U
 #define VOLTAGE_SUPPLY 2.5
 
+
+#define MIN_TEMP_BMS 50
+#define MAX_TEMP_BMS 100
+
 //Steinhart-Hart constants
 #define BIAS_RESISTANCE 8250U
 #define MAX_ADC_COUNT 4096U

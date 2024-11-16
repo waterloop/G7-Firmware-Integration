@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "adc.h"
 #include "can.h"
 #include "dma.h"
@@ -52,6 +53,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -69,6 +71,7 @@ uint32_t temp_data[NUM_SAMPLES][NUM_MUX] = {0};
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -97,9 +100,23 @@ int main(void)
   MX_CAN3_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_CAN2_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_DMA(&hadc3, adc_data, NUM_MUX);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -108,7 +125,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  measureTempADC(temp_average, adc_data, temp_data);
+
 	  //Code for sending CAN message
 	  HAL_Delay(SAMPLE_DELAY);
   }
