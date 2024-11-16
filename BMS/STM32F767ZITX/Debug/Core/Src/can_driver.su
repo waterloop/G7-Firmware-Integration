@@ -1,0 +1,5 @@
+../Core/Src/can_driver.c:8:13:CAN_frame_init	64	static
+../Core/Src/can_driver.c:23:6:CAN_send_frame	32	static
+../Core/Src/can_driver.c:38:13:CAN_get_frame	96	static
+../Core/Src/can_driver.c:60:10:CAN_get_segment	16	static
+../Core/Src/can_driver.c:75:9:CAN_set_segment	32	static

@@ -1,0 +1,4 @@
+../Core/Src/freertos.c:101:6:MX_FREERTOS_Init	8	static
+../Core/Src/freertos.c:157:6:StartDefaultTask	16	static
+../Core/Src/freertos.c:175:6:StartTemp_Sense	1264	static
+../Core/Src/freertos.c:200:6:StartCan_Transmitter	104	static
