@@ -73,13 +73,13 @@ void powerFan(uint32_t *temp_average)
 
 	if(average < MIN_TEMP_BMS){
 		// If the average temperature is below the minimum threshold, turn off the fan
-		htim2.Instance->CCR1 =0;
+		htim2.Instance->CCR1 =3200;
 	}else if(average>MAX_TEMP_BMS){
 		// If the average temperature exceeds the maximum threshold, set fan to maximum speed
-		htim2.Instance->CCR1 =1000;
+		htim2.Instance->CCR1 =6400;
 	}else{
 		// If the temperature is within range, set the fan speed proportionally based on the temperature
-		htim2.Instance->CCR1 = 1000*(average - MIN_TEMP_BMS)/(MAX_TEMP_BMS - MIN_TEMP_BMS);
+		htim2.Instance->CCR1 = 6400*(average - MIN_TEMP_BMS)/(MAX_TEMP_BMS - MIN_TEMP_BMS);
 
 	}
 

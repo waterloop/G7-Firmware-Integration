@@ -109,7 +109,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the semaphores(s) */
   /* creation of TempSem */
-  TempSemHandle = osSemaphoreNew(1, 0, &TempSem_attributes);
+  TempSemHandle = osSemaphoreNew(2, 2, &TempSem_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -241,5 +241,4 @@ void StartCan_Transmitter(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
 
