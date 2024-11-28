@@ -1,6 +1,7 @@
 #include "temp_sensing.h"
 #include <math.h>
 #include <stdio.h>
+#include "tim.h"
 
 
 //Function: Adds temperature sample to array stored in memory and updates final average temperature table
@@ -56,12 +57,32 @@ void measureTempADC(uint32_t *temp_average, uint32_t *adc_data, uint32_t *temp_d
 	return;
 }
 
-//Function: Powers fan using
-//Inputs:   adc_data(array containing measured values from ADCs),
-//          temp_data(array stored in memory containing past n temperature samples),
+//Function: Powers fan using (Timer 2 channel 1 via PA15)
+//Inputs:
 //          temp_average(array containing average multiplexor temperature)
-//Outputs:  temp_data(modified temperature array)
-void powerFan()
+//Outputs:  void
+
+void powerFan(uint32_t *temp_average)
 {
+	uint32_t average = 0;
+	// Sum up the temperatures from each sensor
+	for(int i=0;i<NUM_MUX;i++){
+		average += temp_average[i];
+	}
+	 average /= 6;
+
+	if(average < MIN_TEMP_BMS){
+		// If the average temperature is below the minimum threshold, turn off the fan
+		htim2.Instance->CCR1 =3200;
+	}else if(average>MAX_TEMP_BMS){
+		// If the average temperature exceeds the maximum threshold, set fan to maximum speed
+		htim2.Instance->CCR1 =6400;
+	}else{
+		// If the temperature is within range, set the fan speed proportionally based on the temperature
+		htim2.Instance->CCR1 = 6400*(average - MIN_TEMP_BMS)/(MAX_TEMP_BMS - MIN_TEMP_BMS);
+
+	}
+
+
 	return;
 }
