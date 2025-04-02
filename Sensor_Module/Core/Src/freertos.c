@@ -29,6 +29,7 @@
 #include "config.h"
 #include "mpu6050.h"
 #include "lim.h"
+#include "usart.h"
 #include "pressure.h"
 /* USER CODE END Includes */
 
@@ -69,7 +70,7 @@ const osThreadAttr_t TempSensing_attributes = {
 osThreadId_t IMUProcessingHandle;
 const osThreadAttr_t IMUProcessing_attributes = {
   .name = "IMUProcessing",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for CAN_Sensor_TX */
@@ -83,7 +84,7 @@ const osThreadAttr_t CAN_Sensor_TX_attributes = {
 osThreadId_t CAN_IMU_TXHandle;
 const osThreadAttr_t CAN_IMU_TX_attributes = {
   .name = "CAN_IMU_TX",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Processed_Temp_Sensor_Data_Q */
@@ -167,7 +168,8 @@ void MX_FREERTOS_Init(void) {
   Processed_Temp_Sensor_Data_QHandle = osMessageQueueNew (11, sizeof(uint64_t), &Processed_Temp_Sensor_Data_Q_attributes);
 
   /* creation of Processed_IMU_Data_Q */
-  Processed_IMU_Data_QHandle = osMessageQueueNew (9, sizeof(uint64_t), &Processed_IMU_Data_Q_attributes);
+  //Data_Type_Value_Pairing_t to get the size of the CAN struct
+  Processed_IMU_Data_QHandle = osMessageQueueNew (9, sizeof(Data_Type_Value_Pairing_t), &Processed_IMU_Data_Q_attributes);
 
   /* creation of Processed_Pressure_Sensor_Data_Q */
   Processed_Pressure_Sensor_Data_QHandle = osMessageQueueNew (1, sizeof(uint64_t), &Processed_Pressure_Sensor_Data_Q_attributes);
@@ -296,46 +298,54 @@ void process_temp_data(void *argument)
 void process_IMU_data(void *argument)
 {
   /* USER CODE BEGIN process_IMU_data */
-	int16_t x_accel = 0;
-	int16_t y_accel = 0;
-	int8_t x_gyro = 0;
-	int8_t y_gyro = 0;
-	int8_t z_gyro = 0;
+
 	Data_Type_Value_Pairing_t temp_queue_pair;
+	int16_t ax, ay, az, gx, gy, gz;
+	char uart_buf[100];
+	int uart_buf_len;
+
   /* Infinite loop */
   for(;;)
   {
-	//poll IMU
-	MPU6050_Read_Accel(&x_accel, &y_accel);
-	MPU6050_Read_Gyro(&x_gyro, &y_gyro, &z_gyro);
+	// Poll IMU (Get values in g and °/s)
+	MPU6050_Read(&ax, &ay, &az, &gx, &gy, &gz);
 
-	//create data pairing structs and push them to IMU data queue
+	// UART Debug: Print processed IMU readings
+	uart_buf_len = snprintf(uart_buf, sizeof(uart_buf),
+	    "Accel: X=%d Y=%d Z=%d | Gyro: X=%d Y=%d Z=%d\r\n",
+		ax, ay, az, gx, gy, gz);
+	HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, uart_buf_len, HAL_MAX_DELAY);
+
+	// Create data pairing structs and push them to IMU data queue
 	temp_queue_pair.data_type = X_ACCEL;
-	temp_queue_pair.data_value = x_accel;
+	temp_queue_pair.data_value = ax;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
 	temp_queue_pair.data_type = Y_ACCEL;
-	temp_queue_pair.data_value = y_accel;
+	temp_queue_pair.data_value = ay;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
+
 	temp_queue_pair.data_type = X_GYRO;
-	temp_queue_pair.data_value = x_gyro;
+	temp_queue_pair.data_value = gx;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
 	temp_queue_pair.data_type = Y_GYRO;
-	temp_queue_pair.data_value = y_gyro;
+	temp_queue_pair.data_value = gy;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
 	temp_queue_pair.data_type = Z_GYRO;
-	temp_queue_pair.data_value = z_gyro;
+	temp_queue_pair.data_value = gz;
 	osMessageQueuePut(Processed_IMU_Data_QHandle, &temp_queue_pair, 0, osWaitForever);
 
-	//Release semaphore to signal IMU data ready in Queue
-	osSemaphoreRelease(IMUSemHandle);
+	// UART Debug: Confirm Data Sent to Queue
+	HAL_UART_Transmit(&huart2, (uint8_t*)"IMU Data Sent to Queue\r\n", 24, HAL_MAX_DELAY);
 
-	osDelay(1);
+	// Release semaphore if needed
+	 osSemaphoreRelease(IMUSemHandle);
+
+	osDelay(50);
   }
-  /* USER CODE END process_IMU_data */
 }
 
 /* USER CODE BEGIN Header_process_CAN_sensor_data */
@@ -352,7 +362,7 @@ void process_CAN_sensor_data(void *argument)
 	Data_Type_Value_Pairing_t received_data;
 
 	//Initialize the tx CAN frame
-	CAN_Frame_t tx_frame = CAN_frame_init(&hcan3, SENSOR_BOARD_1);
+	CAN_Frame_t tx_frame = CAN_frame_init(&hcan1, SENSOR_BOARD_1);
   /* Infinite loop */
   for(;;)
   {
@@ -382,7 +392,7 @@ void process_CAN_sensor_data(void *argument)
 	  CAN_set_segment(&tx_frame, SENSORS_ERROR_CODE_1, error_code);
 
 	  //Send CAN message
-	  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan3)) {
+	  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) {
 		  CAN_send_frame(tx_frame);
 	  }
 	  osDelay(1);
@@ -404,7 +414,7 @@ void process_CAN_IMU_data(void *argument)
 	  Data_Type_Value_Pairing_t received_data;
 
 	  //Initialize the tx CAN frame
-	  CAN_Frame_t imu_frame = CAN_frame_init(&hcan3, SENSOR_BOARD_2);
+	  CAN_Frame_t imu_frame = CAN_frame_init(&hcan1, SENSOR_BOARD_2);
   /* Infinite loop */
   for(;;)
   {
@@ -423,13 +433,15 @@ void process_CAN_IMU_data(void *argument)
 	  CAN_set_segment(&imu_frame, SENSORS_ERROR_CODE_2, error_code);
 
 	  //Send CAN message
-	  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan3)) {
+	  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) {
 		  CAN_send_frame(imu_frame);
 	  }
-	  osDelay(1);
+	  osDelay(50);
   }
   /* USER CODE END process_CAN_IMU_data */
 }
+  /* USER CODE END process_CAN_IMU_data */
+
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
