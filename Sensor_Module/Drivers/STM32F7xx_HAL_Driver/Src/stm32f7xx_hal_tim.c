@@ -6950,8 +6950,11 @@ void TIM_Base_SetConfig(TIM_TypeDef *TIMx, const TIM_Base_InitTypeDef *Structure
   /* Set the auto-reload preload */
   MODIFY_REG(tmpcr1, TIM_CR1_ARPE, Structure->AutoReloadPreload);
 
+<<<<<<< HEAD
   TIMx->CR1 = tmpcr1;
 
+=======
+>>>>>>> fced527 (IMU & BMS Updated)
   /* Set the Autoreload value */
   TIMx->ARR = (uint32_t)Structure->Period ;
 
@@ -6964,16 +6967,27 @@ void TIM_Base_SetConfig(TIM_TypeDef *TIMx, const TIM_Base_InitTypeDef *Structure
     TIMx->RCR = Structure->RepetitionCounter;
   }
 
+<<<<<<< HEAD
+=======
+  /* Disable Update Event (UEV) with Update Generation (UG)
+     by changing Update Request Source (URS) to avoid Update flag (UIF) */
+  SET_BIT(TIMx->CR1, TIM_CR1_URS);
+
+>>>>>>> fced527 (IMU & BMS Updated)
   /* Generate an update event to reload the Prescaler
      and the repetition counter (only for advanced timer) value immediately */
   TIMx->EGR = TIM_EGR_UG;
 
+<<<<<<< HEAD
   /* Check if the update flag is set after the Update Generation, if so clear the UIF flag */
   if (HAL_IS_BIT_SET(TIMx->SR, TIM_FLAG_UPDATE))
   {
     /* Clear the update flag */
     CLEAR_BIT(TIMx->SR, TIM_FLAG_UPDATE);
   }
+=======
+  TIMx->CR1 = tmpcr1;
+>>>>>>> fced527 (IMU & BMS Updated)
 }
 
 /**

@@ -706,7 +706,11 @@ HAL_StatusTypeDef HAL_DMA_PollForTransfer(DMA_HandleTypeDef *hdma, HAL_DMA_Level
   {
     if((hdma->ErrorCode & HAL_DMA_ERROR_TE) != RESET)
     {
+<<<<<<< HEAD
       HAL_DMA_Abort(hdma);
+=======
+      (void)HAL_DMA_Abort(hdma);
+>>>>>>> fced527 (IMU & BMS Updated)
     
       /* Clear the half transfer and transfer complete flags */
       regs->IFCR = (DMA_FLAG_HTIF0_4 | DMA_FLAG_TCIF0_4) << hdma->StreamIndex;

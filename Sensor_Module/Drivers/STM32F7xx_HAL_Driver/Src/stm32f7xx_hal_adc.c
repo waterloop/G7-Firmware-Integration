@@ -1305,9 +1305,15 @@ void HAL_ADC_IRQHandler(ADC_HandleTypeDef* hadc)
 
     /* Conversion complete callback */ 
 #if (USE_HAL_ADC_REGISTER_CALLBACKS == 1)
+<<<<<<< HEAD
       hadc->InjectedConvCpltCallback(hadc);
 #else
       HAL_ADCEx_InjectedConvCpltCallback(hadc);
+=======
+    hadc->InjectedConvCpltCallback(hadc);
+#else
+    HAL_ADCEx_InjectedConvCpltCallback(hadc);
+>>>>>>> fced527 (IMU & BMS Updated)
 #endif /* USE_HAL_ADC_REGISTER_CALLBACKS */
     
     /* Clear injected group conversion flag */
@@ -1374,6 +1380,10 @@ void HAL_ADC_IRQHandler(ADC_HandleTypeDef* hadc)
   */
 HAL_StatusTypeDef HAL_ADC_Start_DMA(ADC_HandleTypeDef* hadc, uint32_t* pData, uint32_t Length)
 {
+<<<<<<< HEAD
+=======
+  HAL_StatusTypeDef status = HAL_OK;
+>>>>>>> fced527 (IMU & BMS Updated)
   __IO uint32_t counter = 0;
   
   /* Check the parameters */
@@ -1458,7 +1468,11 @@ HAL_StatusTypeDef HAL_ADC_Start_DMA(ADC_HandleTypeDef* hadc, uint32_t* pData, ui
     hadc->Instance->CR2 |= ADC_CR2_DMA;
     
     /* Start the DMA channel */
+<<<<<<< HEAD
     HAL_DMA_Start_IT(hadc->DMA_Handle, (uint32_t)&hadc->Instance->DR, (uint32_t)pData, Length);
+=======
+    status = HAL_DMA_Start_IT(hadc->DMA_Handle, (uint32_t)&hadc->Instance->DR, (uint32_t)pData, Length);
+>>>>>>> fced527 (IMU & BMS Updated)
     
     /* Check if Multimode enabled */
     if(HAL_IS_BIT_CLR(ADC->CCR, ADC_CCR_MULTI))
@@ -1501,7 +1515,11 @@ HAL_StatusTypeDef HAL_ADC_Start_DMA(ADC_HandleTypeDef* hadc, uint32_t* pData, ui
   }
   
   /* Return function status */
+<<<<<<< HEAD
   return HAL_OK;
+=======
+  return status;
+>>>>>>> fced527 (IMU & BMS Updated)
 }
 
 /**

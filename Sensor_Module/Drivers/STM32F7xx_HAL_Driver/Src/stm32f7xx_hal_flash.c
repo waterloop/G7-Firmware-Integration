@@ -161,7 +161,11 @@ HAL_StatusTypeDef FLASH_WaitForLastOperation(uint32_t Timeout);
   */
 HAL_StatusTypeDef HAL_FLASH_Program(uint32_t TypeProgram, uint32_t Address, uint64_t Data)
 {
+<<<<<<< HEAD
   HAL_StatusTypeDef status = HAL_ERROR;
+=======
+  HAL_StatusTypeDef status;
+>>>>>>> fced527 (IMU & BMS Updated)
   
   /* Process Locked */
   __HAL_LOCK(&pFlash);
