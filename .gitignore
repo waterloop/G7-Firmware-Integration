@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 build
 bin
 temp
@@ -9,3 +10,16 @@ temp
 .settings
 .metadata
 .vscode
+=======
+build
+bin
+temp
+*/Debug/
+.DS_Store
+.vscode/
+.idea/
+.cache
+.settings
+.metadata
+.vscode
+>>>>>>> 952a9c6 (Sensor Recovered)
