@@ -50,9 +50,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
 uint32_t adc_data[NUM_MUX];
-uint32_t temp_average[NUM_MUX] = {0};
-uint32_t temp_data[NUM_SAMPLES][NUM_MUX] = {0};
 
 
 /* USER CODE END PV */
@@ -121,14 +120,13 @@ int main(void)
 
 
 
-  //Can_Health();
 
   HAL_ADC_Start_DMA(&hdma_adc1, adc_data, NUM_MUX);
+
   if(HAL_DMA_GetState(&hdma_adc1) != HAL_DMA_STATE_READY){
 
 	  uint32_t error = HAL_DMA_GetError(&hdma_adc1);
   }
- // HAL_TIM_PWM_Start(&htim15, TIM_CHANNEL_2);
 
 
 
@@ -220,8 +218,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1)
-  {
+  if (htim->Instance == TIM1) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
