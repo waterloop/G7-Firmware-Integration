@@ -1,8 +1,9 @@
 #include "temp_sensing.h"
 #include <math.h>
 #include <stdio.h>
+#include "usart.h"
 
-
+extern TIM_HandleTypeDef htim15;
 //Function: Adds temperature sample to array stored in memory and updates final average temperature table
 //Inputs:   temp_average(old array of average temperatures for each MUX over n samples),
 //          temp_snapshot(array containing 1 sample of MUX temperature data),
@@ -15,6 +16,7 @@ void enqueue(uint32_t *temp_average, uint32_t temp_snapshot[NUM_MUX], uint32_t *
 		temp_data[rear][i] = temp_snapshot[i];
 		temp_average[i] += temp_data[rear][i] / NUM_SAMPLES;
 	}
+	//powerFan(temp_average);
 	return;
 }
 
@@ -43,25 +45,48 @@ void measureTempADC(uint32_t *temp_average, uint32_t *adc_data, uint32_t *temp_d
 	uint32_t temp_snapshot[NUM_MUX] = {0};
 	for(uint8_t i = 0U; i < NUM_THERM_PER_MUX; ++i){
 		//Increment orientation of MUX control lines.
-		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, i & 0x1);
-		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, i >> 1 & 0x1);
-		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_2, i >> 2 & 0x1);
+		HAL_GPIO_WritePin(MUX_SEL_A_GPIO_Port, MUX_SEL_A_Pin, i & 0x1);
+		HAL_GPIO_WritePin(MUX_SEL_B_GPIO_Port, MUX_SEL_B_Pin, i >> 1 & 0x1);
+		HAL_GPIO_WritePin(MUX_SEL_C_GPIO_Port, MUX_SEL_C_Pin, i >> 2 & 0x1);
 
 		//Record average temperature of each MUX.
 		for(uint8_t i = 0U; i < NUM_MUX; ++i){
 			temp_snapshot[i] += calculateTemperature(adc_data[i]) / NUM_THERM_PER_MUX;
 		}
 	}
+
+
+
 	enqueue(temp_average, temp_snapshot, temp_data);
 	return;
 }
 
 //Function: Powers fan using
-//Inputs:   adc_data(array containing measured values from ADCs),
-//          temp_data(array stored in memory containing past n temperature samples),
+//Inputs:
 //          temp_average(array containing average multiplexor temperature)
-//Outputs:  temp_data(modified temperature array)
-void powerFan()
+//Outputs:  void
+
+void powerFan(uint32_t *temp_average)
 {
+	uint32_t average = 0;
+	// Sum up the temperatures from each sensor
+	for(int i=0;i<NUM_MUX;i++){
+		average += temp_average[i];
+	}
+	 average /= 6;
+
+	if(average < MIN_TEMP_BMS){
+		// If the average temperature is below the minimum threshold, turn off the fan
+		__HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1,0);
+	}else if(average>MAX_TEMP_BMS){
+		// If the average temperature exceeds the maximum threshold, set fan to maximum speed
+		__HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1,1000);
+	}else{
+		// If the temperature is within range, set the fan speed proportionally based on the temperature
+		__HAL_TIM_SET_COMPARE(&htim15, TIM_CHANNEL_1, 1000*(average-MIN_TEMP_BMS)/(MAX_TEMP_BMS-MIN_TEMP_BMS));
+
+	}
+
+
 	return;
 }
