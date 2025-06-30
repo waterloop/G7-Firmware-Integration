@@ -22,16 +22,18 @@
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
-#include "can_driver.h"
-#include "config.h"
-#include "DAC.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tim.h"
+#include "can.h"
+#include "can_driver.h"
+#include "DAC.h"
+#include "config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
+typedef StaticSemaphore_t osStaticMutexDef_t;
 /* USER CODE BEGIN PTD */
 
 typedef struct {
@@ -66,12 +68,19 @@ typedef struct {
 	uint16_t pin;
 } GPIO_Pin_t;
 
+typedef struct {
+	MC_Commands command;
+	DrivingDirection direction;
+	uint32_t throttle;
+} Parsed_Command_t;
+
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+volatile Parsed_Command_t mc_command;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -93,33 +102,11 @@ const GPIO_Pin_t BRK = {.port = GPIOD, .pin = GPIO_PIN_13};
 
 /* TID and attribute definitions */
 
-osThreadId_t MC_ReceiveStartTaskHandle;
-const osThreadAttr_t MC_ReceiveStartTaskAttr = {
-		.name = "MC_ReceiveStartThread",
+osThreadId_t MC_ReceiveCommandTaskHandle;
+const osThreadAttr_t MC_ReceiveCommandTaskAttr = {
+		.name = "MC_ReceiveCommandThread",
 		.stack_size = 128 * 4,
-		.priority = (osPriority_t) osPriorityHigh,
-};
-
-osThreadId_t MC_ReceiveEndTaskHandle;
-const osThreadAttr_t MC_ReceiveEndTaskAttr = {
-		.name = "MC_ReceiveEndThread",
-		.stack_size = 128 * 4,
-		.priority = (osPriority_t) osPriorityHigh,
-};
-
-
-osThreadId_t MC_SendStartTaskHandle;
-const osThreadAttr_t MC_SendStartTaskAttr = {
-		.name = "MC_SendStartThread",
-		.stack_size = 128*4,
-		.priority = (osPriority_t) osPriorityNormal,
-};
-
-osThreadId_t MC_SendEndTaskHandle;
-const osThreadAttr_t MC_SendEndTaskAttr = {
-		.name = "MC_SendEndThread",
-		.stack_size = 128*4,
-		.priority = (osPriority_t) osPriorityNormal,
+		.priority = (osPriority_t)  osPriorityHigh1,
 };
 
 osThreadId_t MC_CommandControlTaskHandle;
@@ -131,26 +118,36 @@ const osThreadAttr_t MC_CommandControlTaskAttr = {
 
 /* Queue definitions for CAN frames */
 
-osMessageQueueId_t start_frame_q;
-osMessageQueueId_t end_frame_q;
-
 
 /* Definitions for start and end CAN frame semaphores */
-osSemaphoreId_t MCSemStartHandle;
-const osSemaphoreAttr_t MCSemStart_attributes = {
-  .name = "MCSemStart"
+osSemaphoreId_t MCSemReceiveHandle;
+const osSemaphoreAttr_t MCSemReceive_attributes = {
+  .name = "MCSemReceive"
 };
 
-osSemaphoreId_t MCSemEndHandle;
-const osSemaphoreAttr_t MCSemEnd_attributes = {
-  .name = "MCSemEnd"
+osSemaphoreId_t MCSemParsedHandle;
+const osSemaphoreAttr_t MCSemParsed_attributes = {
+  .name = "MCSemParsed"
 };
 
 
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
-
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for CommandMutex */
+osMutexId_t CommandMutexHandle;
+osStaticMutexDef_t myMutex01ControlBlock;
+const osMutexAttr_t CommandMutex_attributes = {
+  .name = "CommandMutex",
+  .cb_mem = &myMutex01ControlBlock,
+  .cb_size = sizeof(myMutex01ControlBlock),
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -161,17 +158,14 @@ uint32_t error_code(uint16_t data);
 uint32_t process_bits(uint16_t data);
 
 /* Function prototypes for threads */
-void MC_ReceiveStartThread(void *argument);
-void MC_ReceiveEndThread(void *argument);
-void MC_SendStartThread(void *argument);
-void MC_SendEndThread(void *argument);
+void MC_ReceiveCommandThread(void *argument);
 void MC_CommandControlThread(void *argument);
 
 /* Function prototypes for motor control*/
 Motor_Controller_t MC_init(CAN_HandleTypeDef* can_handler, I2C_HandleTypeDef* i2c_handler);
 void MC_stop(Motor_Controller_t* self);
 void MC_drive(Motor_Controller_t* self);
-void MC_change_direction(void);
+void MC_change_direction(Motor_Controller_t* self);
 void MC_set_throttle(Motor_Controller_t* self, float value);
 void MC_get_data(Motor_Controller_t* self);
 void MC_execute_command(CAN_Frame_t frame);
@@ -195,6 +189,9 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  /* Create the mutex(es) */
+  /* creation of CommandMutex */
+  CommandMutexHandle = osMutexNew(&CommandMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -202,8 +199,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
 
-  MCSemStartHandle = osSemaphoreNew(1, 0, &MCSemStart_attributes);
-  MCSemEndHandle = osSemaphoreNew(1, 0, &MCSemEnd_attributes);
+  MCSemReceiveHandle = osSemaphoreNew(1, 0, &MCSemReceive_attributes);
+  MCSemParsedHandle = osSemaphoreNew(1, 0, &MCSemParsed_attributes);
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -212,21 +209,17 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  start_frame_q = osMessageQueueNew(1, sizeof(CAN_Frame_t), NULL);
-  end_frame_q = osMessageQueueNew(1, sizeof(CAN_Frame_t), NULL);
 
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
   /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
 
-  MC_ReceiveStartTaskHandle = osThreadNew(MC_ReceiveStartThread, NULL, &MC_ReceiveStartTaskAttr);
-  MC_ReceiveEndTaskHandle = osThreadNew(MC_ReceiveEndThread, NULL, &MC_ReceiveEndTaskAttr);
-  MC_SendStartTaskHandle = osThreadNew(MC_SendStartThread, NULL, &MC_SendStartTaskAttr);
-  MC_SendEndTaskHandle = osThreadNew(MC_SendEndThread, NULL, &MC_SendEndTaskAttr);
+  MC_ReceiveCommandTaskHandle = osThreadNew(MC_ReceiveCommandThread, NULL, &MC_ReceiveCommandTaskAttr);
   MC_CommandControlTaskHandle = osThreadNew(MC_CommandControlThread, NULL, &MC_CommandControlTaskAttr);
 
   /* add threads, ... */
@@ -259,178 +252,100 @@ void StartDefaultTask(void *argument)
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
-void MC_ReceiveStartThread(void *argument) {
+void MC_ReceiveCommandThread(void *argument) {
 
-	/*Setting ID to MOTOR_CONTROLLER_K1 ensures that we receive the first data frame from the MC*/
-
-	CAN_Frame_t start_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K1); //Initialize CAN_Frame to send to MC
-
-	start_frame.id_type = CAN_ID_EXT;
-	start_frame.data_length = 0;
-	start_frame.rtr = 1; //Configure the request transmission bit to high
-
-	uint8_t received = 0;
-
+	CAN_Frame_t command_frame = CAN_frame_init(&hcan1, MOTOR_CONTROLLER);
 	for(;;){
 
-		//Checks if mailbox is available for transmission and sends start_frame to the MC (requesting data bacK)
-	    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan3)) {
-			CAN_send_frame(start_frame);
-	    }
+		osSemaphoreAcquire(MCSemReceiveHandle, osWaitForever);
+		command_frame = CAN_get_frame(&hcan1, CAN_RX_FIFO0);
+		Parsed_Command_t received_command;
 
-	    //Checks if message is available in RxFifo and receives that message from the MC
-		if(HAL_CAN_GetRxFifoFillLevel(&hcan3, CAN_RX_FIFO0)){
-			start_frame = CAN_get_frame(&hcan3, CAN_RX_FIFO0);
-			received = 1;
+		switch(command_frame.data[0]){
+			case MC_IDLE:
+				received_command.command = MC_IDLE;
+				received_command.direction = NEUTRAL;
+				received_command.throttle = 0;
+				break;
+
+			case MC_START:
+				received_command.command = MC_START;
+				received_command.direction = FORWARD;
+				received_command.throttle = command_frame.data[1];
+				break;
+
+			case MC_STOP:
+				received_command.command = MC_STOP;
+				received_command.direction = NEUTRAL;
+				received_command.throttle = 0;
+				break;
+
+			case MC_THROTTLE:
+				received_command.command = MC_THROTTLE;
+				received_command.throttle = command_frame.data[1];
+				break;
+
+			case MC_DIRECTION:
+				received_command.command = MC_DIRECTION;
+				break;
+
+			default:
+				break;
 		}
 
-		//Checks if data was filled and puts the data in the queue, releasing the semaphore to indicate data is available
-		if(received){
-			osMessageQueuePut(start_frame_q, &start_frame, 0, osWaitForever);
-			osSemaphoreRelease(MCSemStartHandle);
-			received = 0;
-		}
+		osMutexAcquire(CommandMutexHandle, osWaitForever);
+		mc_command = received_command;
+		osMutexRelease(CommandMutexHandle);
 
-
-	}
-}
-
-void MC_ReceiveEndThread(void *argument) {
-
-	/*Setting ID to MOTOR_CONTROLLER_K2 ensures that we receive the first data frame from the MC*/
-	CAN_Frame_t end_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K2); //Initialize CAN_Frame to send to MC
-
-	end_frame.id_type = CAN_ID_EXT;
-	end_frame.data_length = 0;
-	end_frame.rtr = 1; //Configure the request transmission bit to high
-
-	uint8_t received = 0;
-
-	for(;;){
-
-		//Checks if mailbox is available for transmission and sends start_frame to the MC (requesting data bacK)
-	    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan3)) {
-			CAN_send_frame(end_frame);
-		}
-
-	    //Checks if message is available in RxFifo and receives that message from the MC
-		if(HAL_CAN_GetRxFifoFillLevel(&hcan3, CAN_RX_FIFO0)){
-			end_frame = CAN_get_frame(&hcan3, CAN_RX_FIFO0);
-			received = 1;
-		}
-
-		//Checks if data was filled and puts the data in the queue, releasing the semaphore to indicate data is available
-		if(received){
-			osMessageQueuePut(end_frame_q, &end_frame, 0, osWaitForever);
-			osSemaphoreRelease(MCSemEndHandle);
-			received = 0;
-		}
-
-	}
-}
-
-
-
-void MC_SendStartThread(void *argument){
-
-	CAN_Frame_t start_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K1); //Initialize CAN_frame to receive frame from start frame queue
-	CAN_Frame_t send_frame = CAN_frame_init(&hcan1, MOTOR_CONTROLLER_K1); //Initialize CAN_frame to send to RPI
-
-	Motor_Controller_t mc_data = {0};
-
-	for(;;){
-
-		osSemaphoreAcquire(MCSemStartHandle, osWaitForever);
-
-		osMessageQueueGet(start_frame_q, &start_frame, NULL, osWaitForever);
-
-		//Process data from MC
-		mc_data.direction = bits_to_direction(CAN_get_segment(start_frame, DRIVING_DIRECTION_K));
-		mc_data.speed = CAN_get_segment(start_frame, MOTOR_SPEED_K);
-		mc_data.error_code = error_code(CAN_get_segment(start_frame, MOTOR_ERROR_CODE_K));
-
-		//Create new CAN_frame with processed data
-		CAN_set_segment(&send_frame, DRIVING_DIRECTION_K, mc_data.direction);
-		CAN_set_segment(&send_frame, MOTOR_SPEED_K, mc_data.speed);
-		CAN_set_segment(&send_frame, MOTOR_ERROR_CODE_K, mc_data.error_code);
-
-	    //Send data to RPI
-	    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) {
-	        CAN_send_frame(send_frame);
-	    }
-
-
-	    osDelay(1);
-
-
-	}
-}
-
-void MC_SendEndThread(void *argument){
-
-	CAN_Frame_t end_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER_K2); //Initialize CAN_frame to receive frame from end frame queue
-	CAN_Frame_t send_frame = CAN_frame_init(&hcan1, MOTOR_CONTROLLER_K2); //Initialize CAN_frame to send to RPI
-
-	Motor_Controller_t mc_data = {0};
-
-	for(;;){
-
-		osSemaphoreAcquire(MCSemEndHandle, osWaitForever);
-
-		osMessageQueueGet(end_frame_q, &end_frame, NULL, osWaitForever);
-
-		//Process data from MC
-		mc_data.voltage = process_bits(CAN_get_segment(end_frame, BATTERY_VOLTAGE_K));
-		mc_data.current = process_bits(CAN_get_segment(end_frame, BATTERY_CURRENT_K));
-		mc_data.motor_temp = process_bits(CAN_get_segment(end_frame, MOTOR_TEMP_K));
-		mc_data.controller_temp = process_bits(CAN_get_segment(end_frame, MOTOR_CONTROLLER_TEMP_K));
-
-		//Create new CAN_frame with processed data
-		CAN_set_segment(&send_frame, BATTERY_VOLTAGE_K, mc_data.voltage);
-		CAN_set_segment(&send_frame, BATTERY_CURRENT_K, mc_data.current);
-		CAN_set_segment(&send_frame, MOTOR_TEMP_K, mc_data.motor_temp);
-		CAN_set_segment(&send_frame, MOTOR_CONTROLLER_TEMP_K, mc_data.controller_temp);
-
-		//Send data to RPI
-	    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) {
-	    	CAN_send_frame(send_frame);
-	    }
-
-	    osDelay(1);
-
-
+		osSemaphoreRelease(MCSemParsedHandle);
 	}
 }
 
 void MC_CommandControlThread(void *argument){
-	CAN_Frame_t command_frame = CAN_frame_init(&hcan3, MOTOR_CONTROLLER); //initialize frame to receive command from RPI (psuedo frame, RPI code doesn't exist yet)
-	Motor_Controller_t kelly_mc =  MC_init(&hcan3, &hi2c2);; //Initialize motor controller with used CAN and I2C handles
+	Parsed_Command_t parsed_command;
+	Motor_Controller_t kelly_mc =  MC_init(&hcan1, &hi2c2);; //Initialize motor controller with used CAN and I2C handles
 
 	for(;;){
 
-		//Checks if CAN message is available from RPI
-		if(HAL_CAN_GetRxFifoFillLevel(&hcan3, CAN_RX_FIFO1)){
-			command_frame = CAN_get_frame(&hcan3, CAN_RX_FIFO1);
-		}
+		osSemaphoreAcquire(MCSemParsedHandle, osWaitForever);
 
-		uint8_t command = CAN_get_segment(command_frame, RPI_COMMAND_CODE); //Get "command" from CAN data frame
+		osMutexAcquire(CommandMutexHandle, osWaitForever);
+		parsed_command = mc_command;
+		osMutexRelease(CommandMutexHandle);
 
-		if(command == MC_START){
-			MC_drive(&kelly_mc);
-		}
-		else if(command == MC_STOP){
-			MC_stop(&kelly_mc);
-		}
-		else if(command == MC_THROTTLE){
-			uint8_t throttle = CAN_get_segment(command_frame, RPI_COMMAND_DATA); //Get throttle percent "data" from CAN data frame
-			MC_set_throttle(&kelly_mc, (float)throttle);
-		}
-		else if(command == MC_DIRECTION){
-			MC_change_direction();
-		}
+		switch(parsed_command.command){
+			case MC_IDLE:
+				break;
 
+			case MC_START:
+				kelly_mc.direction = parsed_command.direction;
+				kelly_mc.throttle.throttle = parsed_command.throttle;
+				kelly_mc.speed = parsed_command.throttle;
+				MC_drive(&kelly_mc);
+				break;
+
+			case MC_STOP:
+				kelly_mc.direction = parsed_command.direction;
+				kelly_mc.throttle.throttle = parsed_command.throttle;
+				MC_stop(&kelly_mc);
+				break;
+
+			case MC_THROTTLE:
+				kelly_mc.direction = parsed_command.direction;
+				kelly_mc.throttle.throttle = parsed_command.throttle;
+				kelly_mc.speed = parsed_command.throttle;
+				MC_set_throttle(&kelly_mc, (float)parsed_command.throttle);
+				break;
+
+			case MC_DIRECTION:
+				kelly_mc.direction = parsed_command.direction;
+				MC_change_direction(&kelly_mc);
+				break;
+
+			default:
+				break;
+		}
 	}
-
 }
 
 DrivingDirection bits_to_direction(uint8_t data){
@@ -479,32 +394,73 @@ Motor_Controller_t MC_init(CAN_HandleTypeDef* handler, I2C_HandleTypeDef* i2c_ha
 	return ret;
 }
 
+void MC_set_motor_speed(uint32_t freq, uint8_t direction){
+
+    uint32_t timer_clock = 16000000; // 16 MHz timer clock
+    uint32_t prescaler = 0; // assuming prescaler 0 for max resolution
+
+    uint32_t arr = (timer_clock / ((prescaler + 1) * freq)) - 1;
+    uint32_t pulse = (arr + 1)/2;
+    uint32_t phase_offset = pulse/2;
+
+    __HAL_TIM_DISABLE(&htim1);    // Stop timer
+    __HAL_TIM_DISABLE(&htim2);    // Stop timer
+    __HAL_TIM_SET_AUTORELOAD(&htim1, arr);  // Update ARR
+    __HAL_TIM_SET_AUTORELOAD(&htim2, arr);  // Update ARR
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pulse);
+
+    if(direction == 1){
+        __HAL_TIM_SET_COUNTER(&htim2, 3 * phase_offset); //Start at 270 degrees = lead timer1 by 90 degrees
+    }
+    else if(direction == 0){
+    	__HAL_TIM_SET_COUNTER(&htim2, phase_offset); //Start at 90 degrees = lags timer1 by 90 degrees
+    }
+
+    __HAL_TIM_ENABLE(&htim1);     // Restart timer
+    __HAL_TIM_ENABLE(&htim2);     // Restart timer
+}
+
 void MC_stop(Motor_Controller_t* self) {
-	DAC_write(&self -> throttle, 0); //Sets throttle to 0
 	HAL_GPIO_WritePin(BRK.port, BRK.pin, GPIO_PIN_SET); //Sets brake pin
 	HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_RESET); //Resets reverse pin
 	HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_RESET); //Resets forward pin
+
+	uint32_t step_delay = 50; // 50ms steps
+	uint32_t total_steps = 1000 / step_delay;
+
+	for (uint32_t step = 0; step < total_steps; step++) {
+	   float progress = (float)step / (float)total_steps;
+	   float new_speed = self->speed * (1.0f - progress);
+
+	   MC_set_motor_speed((new_speed/100) * 10000, self->direction);
+	   osDelay(pdMS_TO_TICKS(step_delay));
+	}
 }
 
 void MC_drive(Motor_Controller_t* self) {
 	HAL_GPIO_WritePin(BRK.port, BRK.pin, GPIO_PIN_RESET); //Resets brake pin (0)
 	HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_RESET); //Resets reverse pin
 	HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_SET); //Sets forward pin
-	DAC_write(&self -> throttle, get_voltage(DEFAULT_THROTTLE)); //Sets throttle to default (100%)
+    MC_set_motor_speed((self->speed/100) * 10000, 1); //10 khz frequency and forward
+
+	//DAC_write(&self -> throttle, get_voltage(self->throttle.throttle)); //Sets throttle to default (100%)
 }
 
-void MC_change_direction() {
+void MC_change_direction(Motor_Controller_t* self) {
 	if (HAL_GPIO_ReadPin(FW.port, FW.pin)) { //Sets direction to reverse if direction is forward
 		HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_SET);
+		MC_set_motor_speed((self->speed/100) * 10000, 0); //keep same speed, change direction to reverse
 	} else if(HAL_GPIO_ReadPin(REV.port, REV.pin)) { //Sets direction to forward if direction is reverse
 		HAL_GPIO_WritePin(REV.port, REV.pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(FW.port, FW.pin, GPIO_PIN_SET);
+		MC_set_motor_speed((self->speed/100) * 10000, 1);
 	}
 }
 
 void MC_set_throttle(Motor_Controller_t* self, float value) {
-	DAC_write(&self -> throttle, get_voltage(value)); //Updates MC throttle with passed in value
+	 MC_set_motor_speed((value/100) * 10000, self->direction);
 }
 
 float get_voltage(float throttle) {
@@ -512,6 +468,13 @@ float get_voltage(float throttle) {
 }
 
 
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	if(hcan->Instance == CAN1){
+		osSemaphoreRelease(MCSemReceiveHandle);
+	}
+}
 
 
 /* USER CODE END Application */
