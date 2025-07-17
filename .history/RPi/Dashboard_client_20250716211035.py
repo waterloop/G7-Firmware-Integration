@@ -1,3 +1,4 @@
+# VERSION 10: with CAN
 import can
 import grpc
 import threading
