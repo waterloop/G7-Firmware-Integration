@@ -146,9 +146,8 @@ class TelemetryClient:
         # decimal_string = str(0x67A)  # '1658'
         try:
             # REMEMBER WHEN TESTING WITH CAN, USE data.hex()
-            # too lazy to do this after the type, will do it before
+            # logger.info("Received CAN message with ID=%s, Data=%s", arbitration_id, data.hex())
             logger.info("Received CAN message with ID=%s, Data=%s", arbitration_id, data) 
-            # logger.info(f"Received CAN message with ID={arbitration_id}, Data={data}")
             
             # Handle data conversion for string input (testing mode)
             data_bytes = data.split(',') if isinstance(data, str) else data
@@ -158,8 +157,8 @@ class TelemetryClient:
             
             # UNFINALIZED BOARD IDS
             BMS_ID = 0x1e       # BMS STM32 Board CAN ID
-            SENSORS_ID = 0xFF   # S&T STM32 Board CAN ID
-            IMU_ID = 0xFF       # IMU Board CAN ID (not finalized yet)
+            SENSORS_ID = 0x14   # S&T STM32 Board CAN ID
+            IMU_ID = 0xA       # IMU Board CAN ID (not finalized yet)
 
             # parse the arbitration_id
             # if arbitration_id == BMS_ID: 
@@ -180,7 +179,6 @@ class TelemetryClient:
             
             # elif arbitration_id == SENSORS_ID: # S&T STM32 Board CAN ID, should be string for testing
             elif arbitration_id == "0xFF": # S&T STM32 Board CAN ID, should be string for testing
-                # FOR BYTES OBJECT: elif arbitration_id == 0xFF:
                 logger.info("Telemetry Data type: SENSORS")
                 if len(data_bytes) == 8:
                     # Combine bytes into 2-byte integer values for LIMs
