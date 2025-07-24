@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package host;
+
+service HostControl {
+    rpc TelemetryStream (stream HostMessage) returns (stream HostMessage);
+    rpc CommandStream (stream HostMessage) returns (stream HostMessage);
+    rpc MotorControlStream (stream HostMessage) returns (stream HostMessage);
+}
+
+message HostMessage {
+    string sender = 1;
+    string recipient = 2;
+    string command = 3;
+}
