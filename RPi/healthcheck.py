@@ -36,11 +36,11 @@ GPIO.setup(GREEN, GPIO.OUT)
 GPIO.setup(BLUE, GPIO.OUT)
 
 # Define STM32 board arbitration IDs
-STM32_BMS_ID = 0x67a                # STM32 Board 1 - BMS
-STM32_ST_ID = 0x200                 # STM32 Board 2 - S&T
-STM32_MC_ID = 0x300                 # STM32 Board 3 - Motor Controller
-STM32_IDS=[0x100 , 0x200 , 0x300]   # List for all the stm32 ids
- 
+STM32_BMS_ID = 0x10               # STM32 Board 1 - BMS
+STM32_ST_ID = 0x20                # STM32 Board 2 - S&T
+STM32_MC_ID = 0x30                # STM32 Board 3 - Motor Controller
+STM32_IDS=[0x10 , 0x20 , 0x30]   # List for all the stm32 ids
+
 # Function to send CAN message
 def send_can_message(node_id, data):
     try:

@@ -62,8 +62,6 @@ class TelemetryClient:
     
     def input_loop(self):
         """Handle user input from terminal"""
-        # print("[Telemetry] Enter telemetry data (e.g., 'speed=50,temp=75'):")
-        # print("[Telemetry] Type 'exit' to quit")
         print("[Telemetry] Commands:")
         print("1. Type 'random' to send a random Telemetry CAN message")
         print("2. Type 'can:ID:DATA' where ID is CAN ID (0-2047) and DATA is comma-separated bytes")
@@ -77,12 +75,11 @@ class TelemetryClient:
                     self.stop()
                     break
                 
-                # INITIALIZE TELEMETRY DATA RETRIEVAL/PROCESSING
                 ######## COMMENT OUT FOR TESTING WITHOUT THE CAN BUS ########
                 # Execute the motor command by sending through CAN bus
                 # msg = BUS.recv()
                 # command = self.parse_telemetry_data(msg.arbitration_id, msg.data)
-                # print("[Telemetry] Received CAN message from bus:",command) # ??
+                # print("[Telemetry] Received CAN message from bus:",command)
                 #############################################################
 
                 # Random CAN message generation (change to receive can packets, parse, identify type of data based on id)
@@ -98,7 +95,7 @@ class TelemetryClient:
                     if len(parts) >= 3:
                         command = f"telemetry:{parts[1]}:{parts[2]}"
                         command = self.parse_telemetry_data(parts[1], parts[2])
-                        print("[Telemetry] Received CAN message from bus:",command) # ??
+                        print("[Telemetry] Received CAN message from bus:",command)
                     else:
                         print("[Telemetry] Invalid format. Use can:ID:DATA")
                         continue
@@ -113,16 +110,42 @@ class TelemetryClient:
             except EOFError:
                 break
     
+    def can_listener_loop(self):
+        """Continuously listen for CAN messages from the bus"""
+        ######## COMMENT OUT FOR TESTING WITHOUT THE CAN BUS ########
+        # while not self._stop_event.is_set():
+        #     try:
+        #         msg = BUS.recv(timeout=1.0)  # 1 second timeout
+        #         if msg:
+        #             command = self.parse_telemetry_data(str(msg.arbitration_id), msg.data)
+        #             print("[Telemetry] Received CAN message from bus:", command)
+        #             
+        #             # Add to message queue for streaming
+        #             with self.queue_lock:
+        #                 self.message_queue.append(command)
+        #     except can.CanError as e:
+        #         logger.error(f"CAN receive error: {e}")
+        #     except Exception as e:
+        #         logger.error(f"Unexpected error in CAN listener: {e}")
+        #########################################################
+        pass
+
     def start(self):
         """Start the telemetry client"""
         self._running = True
         self._stop_event.clear()
         print(f"[Telemetry] Client starting with ID: {self.client_id}")
         
-        # Start input thread
+        # Start input thread for testing/manual commands
         input_thread = threading.Thread(target=self.input_loop)
         input_thread.daemon = True
         input_thread.start()
+        
+        ######## COMMENT OUT FOR TESTING WITHOUT THE CAN BUS ########
+        # Start CAN listener thread for production use
+        # can_thread = threading.Thread(target=self.can_listener_loop)
+        # can_thread.daemon = True
+        # can_thread.start()
         
         try:
             # Start bidirectional streaming
@@ -139,13 +162,9 @@ class TelemetryClient:
         self._stop_event.set()
         print("[Telemetry] Client stopping...")
     
-    ######## COMMENT OUT FOR TESTING WITHOUT THE CAN BUS ########
-    def parse_telemetry_data(self, arbitration_id, data): # data comes pre-received from the input loop
-        # converting between hex, string, decimal
-        # hex_string = hex(0x67A)   # '0x67a'
-        # decimal_string = str(0x67A)  # '1658'
+    def parse_telemetry_data(self, arbitration_id, data): 
         try:
-            # REMEMBER WHEN TESTING WITH CAN, USE data.hex()
+            # UNCOMMENT BELOW TO TEST WITH CAN
             # logger.info("Received CAN message with ID=%s, Data=%s", arbitration_id, data.hex())
             logger.info("Received CAN message with ID=%s, Data=%s", arbitration_id, data) 
             
@@ -156,9 +175,9 @@ class TelemetryClient:
             # data_bytes = list(data) if isinstance(data, bytes) else data.split(',') if isinstance(data, str) else data
             
             # UNFINALIZED BOARD IDS
-            BMS_ID = 0x1e       # BMS STM32 Board CAN ID
-            SENSORS_ID = 0x14   # S&T STM32 Board CAN ID
-            IMU_ID = 0xA       # IMU Board CAN ID (not finalized yet)
+            BMS_ID = 0x10       # BMS STM32 Board CAN ID
+            SENSORS_ID = 0x20   # S&T STM32 Board CAN ID
+            IMU_ID = 0x30       # IMU Board CAN ID (not finalized yet)
 
             # parse the arbitration_id
             # if arbitration_id == BMS_ID: 
