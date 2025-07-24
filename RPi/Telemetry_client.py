@@ -146,6 +146,7 @@ class TelemetryClient:
         # can_thread = threading.Thread(target=self.can_listener_loop)
         # can_thread.daemon = True
         # can_thread.start()
+        #############################################################
         
         try:
             # Start bidirectional streaming
